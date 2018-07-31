@@ -73,16 +73,13 @@ def greens_e_vector_ea_rhf(cc, p):
     )
 
 
-def initial_ea_guess(cc):
-    nocc, nvir = cc.t1.shape
-    vector1 = np.zeros((nvir,), dtype=complex)
-    vector2 = np.zeros((nocc, nvir, nvir), dtype=complex)
-    return amplitudes_to_vector_ea(vector1, vector2)
-
-
 def ea_size(cc):
     nocc, nvir = cc.t1.shape
     return nvir + nocc * nvir * nvir
+
+
+def initial_ea_guess(cc):
+    return np.zeros(ea_size(cc), dtype=complex)
 
 
 ###################
@@ -152,16 +149,13 @@ def greens_e_vector_ip_rhf(cc, p):
     )
 
 
-def initial_ip_guess(cc):
-    nocc, nvir = cc.t1.shape
-    vector1 = np.zeros((nocc,), dtype=complex)
-    vector2 = np.zeros((nocc, nocc, nvir), dtype=complex)
-    return amplitudes_to_vector_ip(vector1, vector2)
-
-
 def ip_size(cc):
     nocc, nvir = cc.t1.shape
     return nocc + nocc * nocc * nvir
+
+
+def initial_ip_guess(cc):
+    return np.zeros(ip_size(cc), dtype=complex)
 
 
 def greens_func_multiply(ham, vector, linear_part, **kwargs):
