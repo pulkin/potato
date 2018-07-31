@@ -73,6 +73,18 @@ def greens_e_vector_ea_rhf(cc, p):
     )
 
 
+def initial_ea_guess(cc):
+    nocc, nvir = cc.t1.shape
+    vector1 = np.zeros((nvir,), dtype=complex)
+    vector2 = np.zeros((nocc, nvir, nvir), dtype=complex)
+    return amplitudes_to_vector_ea(vector1, vector2)
+
+
+def ea_size(cc):
+    nocc, nvir = cc.t1.shape
+    return nvir + nocc * nvir * nvir
+
+
 ###################
 # IP Greens       #
 ###################
@@ -140,10 +152,6 @@ def greens_e_vector_ip_rhf(cc, p):
     )
 
 
-def greens_func_multiply(ham, vector, linear_part, **kwargs):
-    return np.array(ham(vector, **kwargs) + linear_part * vector)
-
-
 def initial_ip_guess(cc):
     nocc, nvir = cc.t1.shape
     vector1 = np.zeros((nocc,), dtype=complex)
@@ -151,21 +159,13 @@ def initial_ip_guess(cc):
     return amplitudes_to_vector_ip(vector1, vector2)
 
 
-def initial_ea_guess(cc):
-    nocc, nvir = cc.t1.shape
-    vector1 = np.zeros((nvir,), dtype=complex)
-    vector2 = np.zeros((nocc, nvir, nvir), dtype=complex)
-    return amplitudes_to_vector_ea(vector1, vector2)
-
-
-def ip_shape(cc):
+def ip_size(cc):
     nocc, nvir = cc.t1.shape
     return nocc + nocc * nocc * nvir
 
 
-def ea_shape(cc):
-    nocc, nvir = cc.t1.shape
-    return nvir + nocc * nvir * nvir
+def greens_func_multiply(ham, vector, linear_part, **kwargs):
+    return np.array(ham(vector, **kwargs) + linear_part * vector)
 
 
 class greens_function:
@@ -203,12 +203,12 @@ class greens_function:
 
         # set initial bra/ket
         nmo = mo_coeff.shape[1]
-        e_vector_mo = np.zeros([nmo, ip_shape(cc)], dtype=dtype)
+        e_vector_mo = np.zeros([nmo, ip_size(cc)], dtype=dtype)
         for i in range(nmo):
             e_vector_mo[i, :] = greens_e_vector_ip_rhf(cc, i)
         e_vector_ao = np.einsum("pi,ix->px", mo_coeff[ps, :], e_vector_mo)
 
-        b_vector_mo = np.zeros([ip_shape(cc), nmo], dtype=dtype)
+        b_vector_mo = np.zeros([ip_size(cc), nmo], dtype=dtype)
         for i in range(nmo):
             b_vector_mo[:, i] = greens_b_vector_ip_rhf(cc, i)
         b_vector_ao = np.einsum("xi,ip->xp", b_vector_mo, mo_coeff.T[:, ps])
@@ -254,12 +254,12 @@ class greens_function:
 
         # set initial bra/ket
         nmo = mo_coeff.shape[1]
-        e_vector_mo = np.zeros([nmo, ea_shape(cc)], dtype=dtype)
+        e_vector_mo = np.zeros([nmo, ea_size(cc)], dtype=dtype)
         for i in range(nmo):
             e_vector_mo[i, :] = greens_e_vector_ea_rhf(cc, i)
         e_vector_ao = np.einsum("pi,ix->px", mo_coeff[ps, :], e_vector_mo)
 
-        b_vector_mo = np.zeros([ea_shape(cc), nmo], dtype=dtype)
+        b_vector_mo = np.zeros([ea_size(cc), nmo], dtype=dtype)
         for i in range(nmo):
             b_vector_mo[:, i] = greens_b_vector_ea_rhf(cc, i)
         b_vector_ao = np.einsum("xi,ip->xp", b_vector_mo, mo_coeff.T[:, ps])
@@ -389,11 +389,11 @@ class greens_function:
 
         # set initial bra/ket
         nmo = mo_coeff.shape[1]
-        e_vector_mo = np.zeros([nmo, ip_shape(cc)], dtype=np.complex128)
+        e_vector_mo = np.zeros([nmo, ip_size(cc)], dtype=np.complex128)
         for i in range(nmo):
             e_vector_mo[i, :] = greens_e_vector_ip_rhf(cc, i)
         e_vector_ao = np.einsum("pi,ix->px", mo_coeff[ps, :], e_vector_mo)
-        b_vector_mo = np.zeros([ip_shape(cc), nmo], dtype=np.complex128)
+        b_vector_mo = np.zeros([ip_size(cc), nmo], dtype=np.complex128)
         for i in range(nmo):
             b_vector_mo[:, i] = greens_b_vector_ip_rhf(cc, i)
         b_vector_ao = np.einsum("xi,ip->xp", b_vector_mo, mo_coeff.T[:, ps])
@@ -422,11 +422,11 @@ class greens_function:
 
         # set initial bra/ket
         nmo = mo_coeff.shape[1]
-        e_vector_mo = np.zeros([nmo, ea_shape(cc)], dtype=np.complex128)
+        e_vector_mo = np.zeros([nmo, ea_size(cc)], dtype=np.complex128)
         for i in range(nmo):
             e_vector_mo[i, :] = greens_e_vector_ea_rhf(cc, i)
         e_vector_ao = np.einsum("pi,ix->px", mo_coeff[ps, :], e_vector_mo)
-        b_vector_mo = np.zeros([ea_shape(cc), nmo], dtype=np.complex128)
+        b_vector_mo = np.zeros([ea_size(cc), nmo], dtype=np.complex128)
         for i in range(nmo):
             b_vector_mo[:, i] = greens_b_vector_ea_rhf(cc, i)
         b_vector_ao = np.einsum("xi,ip->xp", b_vector_mo, mo_coeff.T[:, ps])
