@@ -327,7 +327,7 @@ class greens_function:
                                              b_vector, t_eval=times, rtol=tol, atol=tol)
 
             for iq, q in enumerate(qs):
-                gfvals[iq, ip, :] = np.dot(e_vector[iq], solp.y)
+                gfvals[iq, ip, :] = 1.j * np.dot(e_vector[iq], solp.y)
 
         return gfvals
 
@@ -371,7 +371,7 @@ class greens_function:
                                              b_vector, t_eval=times, rtol=tol, atol=tol)
 
             for ip, p in enumerate(ps):
-                gfvals[ip, iq, :] = np.dot(e_vector[ip], solq.y)
+                gfvals[ip, iq, :] = 1.j * np.dot(e_vector[ip], solq.y)
         return gfvals
 
     def solve_ip_ao(self, cc, ps, omega_list, mo_coeff, broadening):
