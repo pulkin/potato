@@ -3,7 +3,7 @@ import scipy
 
 import pyscf
 import pyscf.cc
-from pyscf.cc.eom_rccsd import amplitudes_to_vector_ip, amplitudes_to_vector_ea
+from pyscf.cc.eom_rccsd import amplitudes_to_vector_ip, amplitudes_to_vector_ea, ipccsd_diag, eaccsd_diag
 
 
 ###################
@@ -224,7 +224,7 @@ class greens_function:
                                              rtol=tol, atol=tol)
 
             for iq, q in enumerate(ps):
-                gf_ao[iq, ip, :] = np.dot(e_vector_ao[iq], solp.y)
+                gf_ao[iq, ip, :] = (1.j if re_im == "re" else 1.) * np.dot(e_vector_ao[iq], solp.y)
 
         return gf_ao
 
@@ -275,7 +275,7 @@ class greens_function:
                                              rtol=tol, atol=tol)
 
             for iq, q in enumerate(ps):
-                gf_ao[iq, ip, :] = np.dot(e_vector_ao[iq], solp.y)
+                gf_ao[iq, ip, :] = (1.j if re_im == "re" else 1.) * np.dot(e_vector_ao[iq], solp.y)
 
         return gf_ao
 
@@ -371,7 +371,7 @@ class greens_function:
                                              b_vector, t_eval=times, rtol=tol, atol=tol)
 
             for ip, p in enumerate(ps):
-                gfvals[ip, iq, :] = 1.j * np.dot(e_vector[ip], solq.y)
+                gfvals[ip, iq, :] = np.dot(e_vector[ip], solq.y)
         return gfvals
 
     def solve_ip_ao(self, cc, ps, omega_list, mo_coeff, broadening):
@@ -441,7 +441,11 @@ class greens_function:
 
         return gf_ao
 
-    def solve_ip(self, cc, ps, qs, omega_list, broadening):
+    def solve_ip(self, cc, ps, qs, omega_list, broadening, with_precond=True):
+        _s_niter_pep = np.zeros(len(omega_list), dtype=int)
+        self.stats = dict(
+            niter_per_energy_point=_s_niter_pep,
+        )
         eomip = pyscf.cc.eom_rccsd.EOMIP(cc)
         eomip_imds = eomip.make_imds()
         x0 = initial_ip_guess(cc)
@@ -450,6 +454,7 @@ class greens_function:
         for q in qs:
             e_vector.append(greens_e_vector_ip_rhf(cc, q))
         gfvals = np.zeros((len(ps), len(qs), len(omega_list)), dtype=complex)
+        diagonal = ipccsd_diag(eomip, eomip_imds)
         for ip, p in enumerate(ps):
             b_vector = greens_b_vector_ip_rhf(cc, p)
             for iomega in range(len(omega_list)):
@@ -458,7 +463,14 @@ class greens_function:
                 def matr_multiply(vector, args=None):
                     return greens_func_multiply(eomip.matvec, vector, curr_omega - 1j * broadening, imds=eomip_imds)
 
-                sol = self.__solve_linear_problem__(matr_multiply, b_vector, x0, p0)
+                if with_precond:
+                    def precond(vector):
+                        return vector / (curr_omega + diagonal + 1j * broadening)
+                else:
+                    precond = None
+
+                sol = self.__solve_linear_problem__(matr_multiply, b_vector, x0, p0, precond)
+                _s_niter_pep[iomega] += self.__i_counter__
                 x0 = sol
                 for iq, q in enumerate(qs):
                     gfvals[ip, iq, iomega] = -np.dot(e_vector[iq], sol)
@@ -467,7 +479,11 @@ class greens_function:
         else:
             return gfvals
 
-    def solve_ea(self, cc, ps, qs, omega_list, broadening):
+    def solve_ea(self, cc, ps, qs, omega_list, broadening, with_precond=True):
+        _s_niter_pep = np.zeros(len(omega_list), dtype=int)
+        self.stats = dict(
+            niter_per_energy_point=_s_niter_pep,
+        )
         eomea = pyscf.cc.eom_rccsd.EOMEA(cc)
         eomea_imds = eomea.make_imds()
         x0 = initial_ea_guess(cc)
@@ -476,6 +492,7 @@ class greens_function:
         for p in ps:
             e_vector.append(greens_e_vector_ea_rhf(cc, p))
         gfvals = np.zeros((len(ps), len(qs), len(omega_list)), dtype=complex)
+        diagonal = eaccsd_diag(eomea, eomea_imds)
         for iq, q in enumerate(qs):
             b_vector = greens_b_vector_ea_rhf(cc, q)
             for iomega in range(len(omega_list)):
@@ -484,7 +501,14 @@ class greens_function:
                 def matr_multiply(vector, args=None):
                     return greens_func_multiply(eomea.matvec, vector, -curr_omega - 1j * broadening, imds=eomea_imds)
 
-                sol = self.__solve_linear_problem__(matr_multiply, b_vector, x0, p0)
+                if with_precond:
+                    def precond(vector):
+                        return vector / (- curr_omega + diagonal + 1j * broadening)
+                else:
+                    precond = None
+
+                sol = self.__solve_linear_problem__(matr_multiply, b_vector, x0, p0, precond)
+                _s_niter_pep[iomega] += self.__i_counter__
                 x0 = sol
                 for ip, p in enumerate(ps):
                     gfvals[ip, iq, iomega] = np.dot(e_vector[ip], sol)
@@ -496,9 +520,10 @@ class greens_function:
     def solve_gf(self, cc, p, q, omega_list, broadening):
         return self.solve_ip(cc, p, q, omega_list, broadening), self.solve_ea(cc, p, q, omega_list, broadening)
 
-    def __solve_linear_problem__(self, matr_multiply, b_vector, x0, p0):
+    def __solve_linear_problem__(self, matr_multiply, b_vector, x0, p0, precond=None):
         self.l("  Solving linear problem ...")
         try:
+            # TODO: precond (preconditioner) is not used here
             import gminres
             driver = gminres.gMinRes(matr_multiply, b_vector, x0, p0)
             return driver.get_solution().reshape(-1)
@@ -509,14 +534,25 @@ class greens_function:
             import scipy.sparse.linalg as spla
             size = len(b_vector)
             Ax = spla.LinearOperator((size, size), matr_multiply)
-            result, info = spla.gmres(Ax, b_vector, x0=x0, callback=self.__spla_callback__)
+            self. __i_counter__ = 0
+            if precond is not None:
+                mx = spla.LinearOperator((size, size), precond)
+                result, info = spla.gmres(Ax, b_vector, x0=x0, callback=self.__spla_callback__, M=mx)
+            else:
+                result, info = spla.gmres(Ax, b_vector, x0=x0, callback=self.__spla_callback__)
             if info != 0:
                 raise RuntimeError("Error solving linear problem: info={:d}".format(info))
+            self.l("  Done in {:d} iterations".format(self.__i_counter__))
             return result
 
     def l(self, x):
         if self.verbose > 0:
             print(x)
 
+    def d(self, x):
+        if self.verbose > 1:
+            print(x)
+
     def __spla_callback__(self, r):
-        self.l("    res = {:.3e}".format(r))
+        self.d("    i = {:d} res = {:.3e}".format(self.__i_counter__, r))
+        self.__i_counter__ += 1
