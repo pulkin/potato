@@ -123,14 +123,6 @@ def greens_e_vector_ea_krhf(cc, p, kp):
     ))[0]
 
 
-def ea_size_k(cc):
-    return cc.vector_size_ea()
-
-
-def initial_ea_guess_k(cc):
-    return np.zeros(ea_size_k(cc), dtype=complex)
-
-
 ###################
 # IP Greens       #
 ###################
@@ -241,14 +233,6 @@ def greens_e_vector_ip_krhf(cc, p, kp):
         greens_e_singles_ip_krhf(cc.t1, cc.t2, cc.l1, cc.l2, p, kp, kconserv),
         greens_e_doubles_ip_krhf(cc.t1, cc.l1, cc.l2, p, kp, kconserv),
     ))[0]
-
-
-def ip_size_k(cc):
-    return cc.vector_size_ip()
-
-
-def initial_ip_guess_k(cc):
-    return np.zeros(ip_size_k(cc), dtype=complex)
 
 
 ###################
