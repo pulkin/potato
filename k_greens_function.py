@@ -1,6 +1,7 @@
 import numpy as np
 
-from pyscf.pbc.cc.kccsd_rhf import nested_to_vector, padding_k_idx
+from pyscf.pbc.mp.kmp2 import padding_k_idx
+from pyscf.pbc.cc.kccsd_rhf import nested_to_vector
 from pyscf.pbc.lib import kpts_helper
 
 import greens_function as gf
